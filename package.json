@@ -1,0 +1,30 @@
+{
+  "name": "okx-trade-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for AI-powered OKX cryptocurrency trading — 4-agent analysis, technical indicators, and trade execution",
+  "type": "module",
+  "bin": {
+    "okx-trade-mcp": "./bin/okx-trade-mcp.mjs"
+  },
+  "main": "./src/server.mjs",
+  "scripts": {
+    "start": "node bin/okx-trade-mcp.mjs",
+    "inspect": "npx @modelcontextprotocol/inspector node bin/okx-trade-mcp.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.24.0"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "lib/",
+    "SKILL.md",
+    "README.md"
+  ],
+  "keywords": ["mcp", "openclaw", "okx", "trading", "ai", "crypto"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

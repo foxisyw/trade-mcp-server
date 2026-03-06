@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OKX AI Trading Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0a0e17;
+    color: #e0e0e0;
+    padding: 16px;
+    min-height: 100vh;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #1e2636;
+  }
+  .header h1 { font-size: 18px; color: #fff; }
+  .header .mode-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .mode-demo { background: #1a3a2a; color: #4ade80; }
+  .mode-live { background: #3a1a1a; color: #f87171; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+
+  .card {
+    background: #111827;
+    border: 1px solid #1e2636;
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .card-label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+  .card-value { font-size: 24px; font-weight: 700; color: #fff; }
+  .card-sub { font-size: 13px; margin-top: 4px; }
+  .green { color: #4ade80; }
+  .red { color: #f87171; }
+  .yellow { color: #fbbf24; }
+
+  .signal-card {
+    background: #111827;
+    border: 1px solid #1e2636;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .signal-badge {
+    display: inline-block;
+    padding: 8px 32px;
+    border-radius: 8px;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 2px;
+  }
+  .signal-LONG { background: #064e3b; color: #4ade80; }
+  .signal-SHORT { background: #450a0a; color: #f87171; }
+  .signal-HOLD { background: #1e293b; color: #94a3b8; }
+  .conviction-bar {
+    height: 6px;
+    background: #1e293b;
+    border-radius: 3px;
+    margin-top: 12px;
+    overflow: hidden;
+  }
+  .conviction-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s;
+  }
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #9ca3af;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th {
+    text-align: left;
+    padding: 8px 10px;
+    font-size: 11px;
+    color: #6b7280;
+    border-bottom: 1px solid #1e2636;
+    text-transform: uppercase;
+  }
+  td {
+    padding: 8px 10px;
+    font-size: 13px;
+    border-bottom: 1px solid #111827;
+  }
+
+  .chart-container {
+    background: #111827;
+    border: 1px solid #1e2636;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    height: 280px;
+  }
+
+  .no-data {
+    text-align: center;
+    color: #6b7280;
+    padding: 40px;
+    font-size: 14px;
+  }
+
+  .footer {
+    text-align: center;
+    color: #374151;
+    font-size: 11px;
+    margin-top: 20px;
+    padding-top: 12px;
+    border-top: 1px solid #1e2636;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>OKX AI Trading Co-Pilot</h1>
+  <span class="mode-badge" id="modeBadge">DEMO</span>
+</div>
+
+<!-- Price Cards -->
+<div class="grid">
+  <div class="card">
+    <div class="card-label">Price</div>
+    <div class="card-value" id="price">--</div>
+    <div class="card-sub" id="change24h">24h: --</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Account Equity</div>
+    <div class="card-value" id="equity">--</div>
+    <div class="card-sub" id="totalPnl">P&L: --</div>
+  </div>
+</div>
+
+<!-- Signal Card -->
+<div class="signal-card">
+  <div class="card-label">AI Signal</div>
+  <div style="margin: 8px 0;">
+    <span class="signal-badge signal-HOLD" id="signalBadge">HOLD</span>
+  </div>
+  <div class="card-sub" id="conviction">Conviction: --</div>
+  <div class="conviction-bar">
+    <div class="conviction-fill" id="convictionFill" style="width:50%; background:#94a3b8;"></div>
+  </div>
+  <div class="card-sub" id="signalSummary" style="margin-top:8px; font-size:12px; color:#9ca3af;">--</div>
+</div>
+
+<!-- Mini Chart -->
+<div class="chart-container">
+  <canvas id="candleChart"></canvas>
+</div>
+
+<!-- Positions Table -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="section-title">Open Positions</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Instrument</th>
+        <th>Direction</th>
+        <th>Size</th>
+        <th>Entry</th>
+        <th>Mark</th>
+        <th>PnL</th>
+        <th>Leverage</th>
+      </tr>
+    </thead>
+    <tbody id="positionsBody">
+      <tr><td colspan="7" class="no-data">No open positions</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Market Data -->
+<div class="grid-3">
+  <div class="card">
+    <div class="card-label">Open Interest</div>
+    <div id="oi" style="font-size:16px; font-weight:600;">--</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Long/Short Ratio</div>
+    <div id="lsRatio" style="font-size:16px; font-weight:600;">--</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Funding Rate</div>
+    <div id="fundingRate" style="font-size:16px; font-weight:600;">--</div>
+  </div>
+</div>
+
+<div class="footer">
+  OKX AI Trading Co-Pilot &mdash; MCP Server Plugin &mdash; Data from OKX Exchange
+</div>
+
+<script>
+// ─── Dashboard Data Injection ────────────────────────────────────
+// The MCP agent fills window.DASHBOARD_DATA before this script runs,
+// or calls updateDashboard(data) after load.
+
+function updateDashboard(data) {
+  if (!data) return;
+
+  // Mode
+  const modeEl = document.getElementById('modeBadge');
+  if (data.mode) {
+    modeEl.textContent = data.mode.toUpperCase();
+    modeEl.className = 'mode-badge ' + (data.mode === 'live' ? 'mode-live' : 'mode-demo');
+  }
+
+  // Price
+  if (data.price !== undefined) {
+    document.getElementById('price').textContent = '$' + parseFloat(data.price).toLocaleString();
+  }
+  if (data.change24h !== undefined) {
+    const ch = document.getElementById('change24h');
+    const val = parseFloat(data.change24h);
+    ch.textContent = '24h: ' + (val >= 0 ? '+' : '') + val.toFixed(2) + '%';
+    ch.className = 'card-sub ' + (val >= 0 ? 'green' : 'red');
+  }
+
+  // Equity
+  if (data.equity !== undefined) {
+    document.getElementById('equity').textContent = '$' + parseFloat(data.equity).toLocaleString(undefined, {minimumFractionDigits: 2});
+  }
+  if (data.totalPnl !== undefined) {
+    const pnl = document.getElementById('totalPnl');
+    const val = parseFloat(data.totalPnl);
+    pnl.textContent = 'P&L: ' + (val >= 0 ? '+$' : '-$') + Math.abs(val).toFixed(2);
+    pnl.className = 'card-sub ' + (val >= 0 ? 'green' : 'red');
+  }
+
+  // Signal
+  if (data.signal) {
+    const badge = document.getElementById('signalBadge');
+    badge.textContent = data.signal;
+    badge.className = 'signal-badge signal-' + data.signal;
+  }
+  if (data.conviction !== undefined) {
+    const conv = parseFloat(data.conviction);
+    document.getElementById('conviction').textContent = 'Conviction: ' + conv + '%';
+    const fill = document.getElementById('convictionFill');
+    fill.style.width = conv + '%';
+    fill.style.background = conv >= 70 ? '#4ade80' : conv >= 40 ? '#fbbf24' : '#f87171';
+  }
+  if (data.summary) {
+    document.getElementById('signalSummary').textContent = data.summary;
+  }
+
+  // Positions
+  if (data.positions && data.positions.length) {
+    const tbody = document.getElementById('positionsBody');
+    tbody.innerHTML = data.positions.map(p => {
+      const dir = p.direction || (parseFloat(p.pos) > 0 ? 'LONG' : 'SHORT');
+      const pnl = parseFloat(p.unrealizedPnl || p.upl || 0);
+      const pnlClass = pnl >= 0 ? 'green' : 'red';
+      return `<tr>
+        <td>${p.instrument || p.instId}</td>
+        <td class="${dir === 'LONG' ? 'green' : 'red'}">${dir}</td>
+        <td>${p.size || Math.abs(parseFloat(p.pos || 0))}</td>
+        <td>$${p.avgPrice || p.avgPx || '--'}</td>
+        <td>$${p.markPrice || p.markPx || '--'}</td>
+        <td class="${pnlClass}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</td>
+        <td>${p.leverage || p.lever || '--'}x</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Market Data
+  if (data.openInterest) {
+    document.getElementById('oi').textContent = parseFloat(data.openInterest).toLocaleString();
+  }
+  if (data.longShortRatio) {
+    const ls = parseFloat(data.longShortRatio);
+    const el = document.getElementById('lsRatio');
+    el.textContent = ls.toFixed(2);
+    el.className = ls > 1.2 ? 'green' : ls < 0.8 ? 'red' : 'yellow';
+  }
+  if (data.fundingRate) {
+    const fr = parseFloat(data.fundingRate);
+    const el = document.getElementById('fundingRate');
+    el.textContent = (fr * 100).toFixed(4) + '%';
+    el.className = fr > 0.005 ? 'red' : fr < -0.005 ? 'green' : '';
+  }
+
+  // Chart
+  if (data.candles && data.candles.length) {
+    renderChart(data.candles);
+  }
+}
+
+function renderChart(candles) {
+  const ctx = document.getElementById('candleChart').getContext('2d');
+  const recent = candles.slice(-50);
+
+  const labels = recent.map(c => {
+    const ts = c.ts || c[0];
+    return new Date(parseInt(ts)).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  });
+  const closes = recent.map(c => parseFloat(c.c || c[4]));
+  const highs = recent.map(c => parseFloat(c.h || c[2]));
+  const lows = recent.map(c => parseFloat(c.l || c[3]));
+
+  if (window._chart) window._chart.destroy();
+  window._chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Close',
+          data: closes,
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,0.1)',
+          fill: true,
+          tension: 0.2,
+          pointRadius: 0,
+          borderWidth: 2,
+        },
+        {
+          label: 'High',
+          data: highs,
+          borderColor: 'rgba(74,222,128,0.3)',
+          borderWidth: 1,
+          borderDash: [3, 3],
+          pointRadius: 0,
+          fill: false,
+        },
+        {
+          label: 'Low',
+          data: lows,
+          borderColor: 'rgba(248,113,113,0.3)',
+          borderWidth: 1,
+          borderDash: [3, 3],
+          pointRadius: 0,
+          fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+      },
+      scales: {
+        x: {
+          grid: { color: '#1e2636' },
+          ticks: { color: '#6b7280', maxTicksLimit: 8, font: { size: 10 } },
+        },
+        y: {
+          grid: { color: '#1e2636' },
+          ticks: { color: '#6b7280', font: { size: 10 } },
+        },
+      },
+    },
+  });
+}
+
+// Auto-init if data is pre-set
+if (window.DASHBOARD_DATA) {
+  updateDashboard(window.DASHBOARD_DATA);
+}
+</script>
+</body>
+</html>
