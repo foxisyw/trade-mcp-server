@@ -1,4 +1,4 @@
-# OKX AI Trading Co-Pilot — MCP Server
+#AI Trading Co-Pilot — MCP Server
 
 AI-powered cryptocurrency trading assistant for [OpenClaw](https://openclaw.com) and any MCP-compatible client (Claude Desktop, etc.).
 
